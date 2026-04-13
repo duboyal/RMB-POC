@@ -1,5 +1,5 @@
 # RMB POC
-Install:
+Install on Ubuntu Server:
 
 - postgreSQL
 - docker, docker-compose
