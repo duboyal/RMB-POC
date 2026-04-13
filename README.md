@@ -15,51 +15,55 @@ echo "order_no,customer_no,customer_name,order_date,invoice_date,warehouse_no,to
 1,123,ACME,04/10/26,04/10/26,01,10,100" > data/incoming/test.ready
 
 ---------------
-## BEST PRACTICE DEV FLOW:
+note to developers :
+## Best Practice Development Flow 
+
+
 Your git repo does not point to the database.
 
 Git tracks:
-	•	code
-	•	Docker files
-	•	SQL init/migrations
+
+-	code
+-	Docker files
+-	SQL init/migrations
 
 Git does not track the live DB.
 
 Best-practice flow
 
 Local
-	•	write code on your Mac
-	•	run local Docker
-	•	use local Postgres for dev/testing
+-	write code on your Mac
+-	run local Docker
+-	use local Postgres for dev/testing
 
 Remote Ubuntu
-	•	install git
-	•	clone repo
-	•	run Docker there
-	•	remote Postgres is the shared/test DB
+-	install git
+-	clone repo
+-	run Docker there
+-	remote Postgres is the shared/test DB
 
 So do not “sync DB to code”
 
 Instead:
-	•	code syncs through git
-	•	database schema syncs through SQL/migrations
-	•	data stays in the DB
+-	code syncs through git
+-	database schema syncs through SQL/migrations
+-	data stays in the DB
 
 Best setup for you
-	1.	Mac
-	•	local code
-	•	local Docker
-	•	local Postgres
-	2.	Ubuntu
-	•	cloned repo
-	•	Docker running
-	•	remote Postgres
-	3.	Deploy flow
-	•	edit locally
-	•	commit + push
-	•	ssh into Ubuntu
-	•	git pull
-	•	docker compose up -d --build
+1.	Mac
+	-	local code
+	-	local Docker
+	-	local Postgres
+2.	Ubuntu
+	-	cloned repo
+	-	Docker running
+	-	remote Postgres
+3.	Deploy flow
+	-	edit locally
+	-	commit + push
+	-	ssh into Ubuntu
+	-	git pull
+	-	docker compose up -d --build
 
 If you want to test against remote DB from your Mac
 
