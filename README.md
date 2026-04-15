@@ -141,3 +141,20 @@ Important mental model
 -	env vars = what DB your code points at
 
 So yes, you can point your code to the remote DB, but don’t think of git as linking to the DB. It’s just deploying code that knows how to connect to a DB.
+
+
+### SOME DOCKER TIPS:
+
+to be extra clean and remove volumes and orphan containers
+
+```
+docker compose down -v --remove-orphans
+```
+
+then do 
+
+```
+docker ps -a
+```
+
+should not see things you dont expect ... TBC...
