@@ -9,6 +9,18 @@ Run:
 
 docker compose up --build
 
+Make sure to get env file over with scp:
+
+```scp .env muscosql@our_ip:~/RMB-POC/.env```
+
+
+Test file drop abilities (drop file and test listener) with scp:
+
+```scp cust1.txt muscosql@our_ip:~/RMB-POC/data/incoming/cust1.txt```
+or
+```scp cust1.txt muscosql@our_ip:~/RMB-POC/data/incoming/test_cust1.txt```
+
+
 Test:
 
 echo "order_no,customer_no,customer_name,order_date,invoice_date,warehouse_no,total_cases,total_gross_weight
