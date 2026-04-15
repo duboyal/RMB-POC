@@ -7,7 +7,7 @@ Install on Ubuntu Server:
 
 Run:
 
-docker compose up --build
+```docker compose up --build```
 
 Make sure to get env file over with scp:
 
