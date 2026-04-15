@@ -5,7 +5,7 @@ ssh onto ubuntu server
 ```
 ssh muscosql@our.ip.adress
 ```
-ommit 
+ 
 
 Install on Ubuntu Server:
 
