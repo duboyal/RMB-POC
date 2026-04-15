@@ -33,47 +33,47 @@ Your git repo does not point to the database.
 
 Git tracks:
 
-	•	code
-	•	Docker files
-	•	SQL init/migrations
+	-	code
+	-	Docker files
+	-	SQL init/migrations
 
 Git does not track the live DB.
 
 Best-practice flow
 
 Local
-	•	write code on your Mac
-	•	run local Docker
-	•	use local Postgres for dev/testing
+	-	write code on your Mac
+	-	run local Docker
+	-	use local Postgres for dev/testing
 
 Remote Ubuntu
-	•	install git
-	•	clone repo
-	•	run Docker there
-	•	remote Postgres is the shared/test DB
+	-	install git
+	-	clone repo
+	-	run Docker there
+	-	remote Postgres is the shared/test DB
 
 So do not “sync DB to code”
 
 Instead:
-	•	code syncs through git
-	•	database schema syncs through SQL/migrations
-	•	data stays in the DB
+	-	code syncs through git
+	-	database schema syncs through SQL/migrations
+	-	data stays in the DB
 
 Best setup for you
 	1.	Mac
-	•	local code
-	•	local Docker
-	•	local Postgres
+	-	local code
+	-	local Docker
+	-	local Postgres
 	2.	Ubuntu
-	•	cloned repo
-	•	Docker running
-	•	remote Postgres
+	-	cloned repo
+	-	Docker running
+	-	remote Postgres
 	3.	Deploy flow
-	•	edit locally
-	•	commit + push
-	•	ssh into Ubuntu
-	•	git pull
-	•	docker compose up -d --build
+	-	edit locally
+	-	commit + push
+	-	ssh into Ubuntu
+	-	git pull
+	-	docker compose up -d --build
 
 If you want to test against remote DB from your Mac
 
@@ -82,8 +82,8 @@ Yes, you can.
 Your local code/container can connect to remote Postgres by changing DB host/port in env vars.
 
 But best practice is:
-	•	mostly use local DB
-	•	only use remote DB for integration testing
+	-	mostly use local DB
+	-	only use remote DB for integration testing
 
 Install git on Ubuntu
 ```
@@ -100,9 +100,9 @@ Then later install Docker and run it there
 docker compose up -d --build
 ```
 Important mental model
-	•	GitHub repo = source of truth for code
-	•	remote Postgres = runtime data
-	•	Docker = how app + DB run
-	•	env vars = what DB your code points at
+	-	GitHub repo = source of truth for code
+	-	remote Postgres = runtime data
+	-	Docker = how app + DB run
+	-	env vars = what DB your code points at
 
 So yes, you can point your code to the remote DB, but don’t think of git as linking to the DB. It’s just deploying code that knows how to connect to a DB.
