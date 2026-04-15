@@ -32,19 +32,18 @@ RMB-POC/data/incoming/
 Your git repo does not point to the database.
 
 Git tracks:
-
-	-	code
-	-	Docker files
-	-	SQL init/migrations
+-	code
+-	Docker files
+-	SQL init/migrations
 
 Git does not track the live DB.
 
 Best-practice flow
 
 Local
-	-	write code on your Mac
-	-	run local Docker
-	-	use local Postgres for dev/testing
+-	write code on your Mac
+-	run local Docker
+-	use local Postgres for dev/testing
 
 Remote Ubuntu
 	-	install git
