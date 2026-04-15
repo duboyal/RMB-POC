@@ -35,6 +35,8 @@ echo "order_no,customer_no,customer_name,order_date,invoice_date,warehouse_no,to
 
 cd into Repo 
 ```RMB-POC```
+and perform ```git pull``` to bring down the latest changes.
+
 then run 
 ```
 docker compose up --build
