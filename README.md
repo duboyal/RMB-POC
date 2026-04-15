@@ -71,8 +71,8 @@ Best setup for you
     -	edit locally
     -	commit + push
     -	ssh into Ubuntu
-    -	git pull
-    -	docker compose up -d --build
+    -	```git pull```
+    -	```docker compose up -d --build```
 
 If you want to test against remote DB from your Mac
 
