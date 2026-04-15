@@ -5,6 +5,12 @@ Install on Ubuntu Server:
 - docker, docker-compose
 - git 
 
+
+cd into Repo 
+```RMB-POC```
+and perform ```git pull``` to bring down the latest changes.
+
+
 Run:
 
 ```docker compose up --build```
