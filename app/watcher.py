@@ -9,9 +9,13 @@ INCOMING = Path("/data/incoming")
 PROCESSING = Path("/data/processing")
 PROCESSED = Path("/data/processed")
 ERROR = Path("/data/error")
+LOGS = Path("/data/logs")
 
-for d in [INCOMING, PROCESSING, PROCESSED, ERROR]:
-    d.mkdir(parents=True, exist_ok=True)
+
+def ensure_directories():
+    for d in [INCOMING, PROCESSING, PROCESSED, ERROR, LOGS]:
+        d.mkdir(parents=True, exist_ok=True)
+        print(f"Ensured directory exists: {d}")
 
 
 class Handler(FileSystemEventHandler):
@@ -39,6 +43,8 @@ class Handler(FileSystemEventHandler):
 
 
 if __name__ == "__main__":
+    ensure_directories()
+
     observer = Observer()
     observer.schedule(Handler(), str(INCOMING), recursive=False)
     observer.start()
