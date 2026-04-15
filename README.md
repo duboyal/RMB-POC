@@ -5,13 +5,13 @@ ssh onto ubuntu server
 ```
 ssh muscosql@our.ip.adress
 ```
-
+ommit 
 
 Install on Ubuntu Server:
 
-- postgreSQL
-- docker, docker-compose
-- git 
+- postgreSQL ✅
+- docker, docker-compose ✅
+- git ✅
 
 
 cd into Repo 
