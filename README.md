@@ -158,3 +158,17 @@ docker ps -a
 ```
 
 should not see things you dont expect ... TBC...
+
+basically you wanna run:
+
+```
+docker compose up --build
+```
+
+in one terminal,
+
+then open a new terminal, ssh into it and then do 
+
+```
+docker compose run --rm worker env | grep DB_
+```
