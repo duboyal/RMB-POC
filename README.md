@@ -1,4 +1,12 @@
 # RMB POC
+
+ssh onto ubuntu server 
+
+```
+ssh muscosql@our.ip.adress
+```
+
+
 Install on Ubuntu Server:
 
 - postgreSQL
