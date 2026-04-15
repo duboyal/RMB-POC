@@ -17,12 +17,13 @@ Make sure to get env file over with scp:
 Test file drop abilities (drop file and test listener) with scp:
 
 ```scp cust1.txt muscosql@our_ip:~/RMB-POC/data/incoming/cust1.txt```
+
 or
 
 ```scp cust1.txt muscosql@our_ip:~/RMB-POC/data/incoming/test_cust1.txt```
 
 
-Test:
+OR Test:
 
 echo "order_no,customer_no,customer_name,order_date,invoice_date,warehouse_no,total_cases,total_gross_weight
 1,123,ACME,04/10/26,04/10/26,01,10,100" > data/incoming/test.ready
