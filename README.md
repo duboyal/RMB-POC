@@ -13,7 +13,11 @@ and perform ```git pull``` to bring down the latest changes.
 
 Run:
 
-```docker compose up --build```
+```sudo docker compose down -v``` to reboot from scratch
+
+then:
+
+```sudo docker compose up --build```
 
 Make sure to get env file over with scp:
 
