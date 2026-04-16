@@ -30,6 +30,9 @@ then run:
 
 ```sudo docker compose up --build```
 
+(recently I've been testing just the worker container)
+```docker compose up worker```
+
 Make sure to get env file over with scp:
 
 ```scp .env muscosql@our_ip:~/RMB-POC/.env```
