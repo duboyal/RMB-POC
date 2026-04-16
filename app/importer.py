@@ -1,5 +1,6 @@
 import re
 from datetime import datetime, timezone
+from pathlib import Path
 
 import pandas as pd
 from sqlalchemy import inspect, MetaData, Table, text
@@ -10,22 +11,50 @@ from db import engine
 
 PRIMARY_KEYS = {
     "cust1": ["CUSTOMER NUMBER"],
+    "detal1": ["CUSTOMER #", "INVOICE #", "LINE NUMBER"],
     "heder1": ["ORDER #"],
     "inven1": ["ITEM #"],
+    "oitem1": ["KEY"],
+    "pcode1": ["PRODUCT CATEGORY CODE"],
+    "scode1": ["PRODUCT GROUP CODE"],
     "shipt1": ["CUSTOMER #", "SHIP-TO #"],
+    "whsfl1": ["WAREHOUSE #", "ITEM #"],
+}
+
+APPEND_ONLY_TABLES = {
+    "heder1",
+    "detal1",
+    "oitem1",
+}
+
+UPSERT_TABLES = {
+    "cust1",
+    "inven1",
+    "shipt1",
+    "pcode1",
+    "scode1",
+    "whsfl1",
 }
 
 
-def sanitize_table_name(path) -> str:
+def sanitize_table_name(path: Path) -> str:
     return re.sub(r"[^a-zA-Z0-9_]", "_", path.stem).lower()
 
 
+def utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
 def add_timestamps(df: pd.DataFrame) -> pd.DataFrame:
-    now = datetime.now(timezone.utc)
+    now = utc_now()
     df = df.copy()
     df["created_at"] = now
     df["updated_at"] = now
     return df
+
+
+def table_exists(table_name: str) -> bool:
+    return inspect(engine).has_table(table_name)
 
 
 def ensure_key_columns_present(
@@ -50,6 +79,10 @@ def ensure_no_duplicate_keys(
         )
 
 
+def append_dataframe(df: pd.DataFrame, table_name: str) -> None:
+    df.to_sql(table_name, con=engine, if_exists="append", index=False)
+
+
 def add_primary_key_constraint(table_name: str, key_columns: list[str]) -> None:
     constraint_name = f"{table_name}_pk"
     quoted_columns = ", ".join(f'"{col}"' for col in key_columns)
@@ -58,24 +91,32 @@ def add_primary_key_constraint(table_name: str, key_columns: list[str]) -> None:
         f"""
         ALTER TABLE "{table_name}"
         ADD CONSTRAINT "{constraint_name}" PRIMARY KEY ({quoted_columns})
-    """
+        """
     )
 
     with engine.begin() as conn:
         conn.execute(sql)
 
 
-def table_exists(table_name: str) -> bool:
-    inspector = inspect(engine)
-    return inspector.has_table(table_name)
+def create_table_and_seed(
+    df: pd.DataFrame, table_name: str, key_columns: list[str] | None = None
+) -> None:
+    if key_columns:
+        ensure_key_columns_present(df, key_columns, table_name)
+        ensure_no_duplicate_keys(df, key_columns, table_name)
 
+    append_dataframe(df, table_name)
 
-def append_dataframe(df: pd.DataFrame, table_name: str) -> None:
-    df.to_sql(table_name, con=engine, if_exists="append", index=False)
+    if key_columns:
+        add_primary_key_constraint(table_name, key_columns)
+        print(f"Added primary key on {table_name}: {key_columns}")
 
 
 def upsert_dataframe(
-    df: pd.DataFrame, table_name: str, key_columns: list[str], chunk_size: int = 1000
+    df: pd.DataFrame,
+    table_name: str,
+    key_columns: list[str],
+    chunk_size: int = 1000,
 ) -> None:
     if df.empty:
         print(f"No rows to upsert for table: {table_name}")
@@ -85,7 +126,6 @@ def upsert_dataframe(
 
     metadata = MetaData()
     table = Table(table_name, metadata, autoload_with=engine)
-
     db_columns = {col.name for col in table.columns}
 
     unknown_input_columns = [col for col in df.columns if col not in db_columns]
@@ -94,11 +134,11 @@ def upsert_dataframe(
             f"Incoming data has column(s) not present in DB table '{table_name}': {unknown_input_columns}"
         )
 
-    for key in key_columns:
-        if key not in db_columns:
-            raise ValueError(
-                f"Key column '{key}' does not exist in DB table '{table_name}'"
-            )
+    missing_db_keys = [key for key in key_columns if key not in db_columns]
+    if missing_db_keys:
+        raise ValueError(
+            f"Key column(s) missing from DB table '{table_name}': {missing_db_keys}"
+        )
 
     writable_columns = [col for col in df.columns if col in db_columns]
 
@@ -127,7 +167,7 @@ def upsert_dataframe(
             set_clause = {col: stmt.excluded[col] for col in update_columns}
 
             if "updated_at" in db_columns:
-                set_clause["updated_at"] = datetime.now(timezone.utc)
+                set_clause["updated_at"] = utc_now()
 
             upsert_stmt = stmt.on_conflict_do_update(
                 index_elements=key_columns,
@@ -137,70 +177,38 @@ def upsert_dataframe(
             conn.execute(upsert_stmt)
 
 
-def create_table_and_seed(
-    df: pd.DataFrame, table_name: str, key_columns: list[str] | None = None
-) -> None:
-    if key_columns:
-        ensure_key_columns_present(df, key_columns, table_name)
-        ensure_no_duplicate_keys(df, key_columns, table_name)
-
-    append_dataframe(df, table_name)
-
-    if key_columns:
-        add_primary_key_constraint(table_name, key_columns)
-        print(f"Added primary key on {table_name}: {key_columns}")
-
-
-def import_file(path):
+def import_file(path: str | Path) -> int:
+    path = Path(path)
     df = pd.read_csv(path, sep="\t")
     table_name = sanitize_table_name(path)
     df = add_timestamps(df)
 
-    key_columns = PRIMARY_KEYS.get(table_name)
     exists = table_exists(table_name)
+    key_columns = PRIMARY_KEYS.get(table_name)
 
-    if not exists:
-        print(f"Creating new table and inserting rows: {table_name}")
-        create_table_and_seed(df, table_name, key_columns)
+    if table_name in APPEND_ONLY_TABLES:
+        if not exists:
+            print(f"Creating new append-only table and inserting rows: {table_name}")
+            append_dataframe(df, table_name)
+        else:
+            print(f"Appending rows into existing append-only table: {table_name}")
+            append_dataframe(df, table_name)
         return len(df)
 
-    if not key_columns:
-        print(f"Table {table_name} exists, but no key is defined. Appending only.")
-        append_dataframe(df, table_name)
+    if table_name in UPSERT_TABLES:
+        if not key_columns:
+            raise ValueError(
+                f"Table '{table_name}' is marked as UPSERT but has no PRIMARY_KEYS entry."
+            )
+
+        if not exists:
+            print(f"Creating new upsert table and inserting rows: {table_name}")
+            create_table_and_seed(df, table_name, key_columns)
+        else:
+            print(f"Upserting rows into existing table: {table_name}")
+            upsert_dataframe(df, table_name, key_columns)
         return len(df)
 
-    print(f"Table {table_name} exists. Upserting rows with keys: {key_columns}")
-    upsert_dataframe(df, table_name, key_columns)
+    print(f"Table '{table_name}' is not classified. Defaulting to append-only.")
+    append_dataframe(df, table_name)
     return len(df)
-
-
-## ----------OLD CODE BELOW HERE--------------
-# import pandas as pd
-# import re
-# from datetime import datetime
-
-
-# def import_file(path):
-#     df = pd.read_csv(path, sep="\t")  #  IMPORTANT (your files are tab-separated)
-
-#     # clean table name
-#     table_name = re.sub(r"[^a-zA-Z0-9_]", "_", path.stem).lower()
-
-#     print(f"Importing into table: {table_name}")
-
-#     # timestamps
-#     now = datetime.utcnow()
-#     df["created_at"] = now
-#     df["updated_at"] = now
-
-#     df.to_sql(
-#         table_name, con=engine, if_exists="append", index=False  # keep append for now
-#     )
-
-#     return len(df)
-
-## ----------OLD CODE BELOW HERE--------------
-# def import_file(path):
-#     df = pd.read_csv(path)
-#     df.to_sql("order_header", con=engine, if_exists="append", index=False)
-#     return len(df)
