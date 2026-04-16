@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
-from sqlalchemy import inspect, MetaData, Table, text
+from sqlalchemy import MetaData, Table, inspect, text
 from sqlalchemy.dialects.postgresql import insert
 
 from db import engine
@@ -109,7 +109,7 @@ def create_table_and_seed(
 
     if key_columns:
         add_primary_key_constraint(table_name, key_columns)
-        print(f"Added primary key on {table_name}: {key_columns}")
+        print(f"Added primary key on {table_name}: {key_columns}", flush=True)
 
 
 def upsert_dataframe(
@@ -119,7 +119,7 @@ def upsert_dataframe(
     chunk_size: int = 1000,
 ) -> None:
     if df.empty:
-        print(f"No rows to upsert for table: {table_name}")
+        print(f"No rows to upsert for table: {table_name}", flush=True)
         return
 
     ensure_key_columns_present(df, key_columns, table_name)
@@ -149,7 +149,7 @@ def upsert_dataframe(
     )
 
     if not records:
-        print(f"No valid records to upsert for table: {table_name}")
+        print(f"No valid records to upsert for table: {table_name}", flush=True)
         return
 
     update_columns = [
@@ -163,7 +163,6 @@ def upsert_dataframe(
             batch = records[start : start + chunk_size]
 
             stmt = insert(table).values(batch)
-
             set_clause = {col: stmt.excluded[col] for col in update_columns}
 
             if "updated_at" in db_columns:
@@ -188,10 +187,16 @@ def import_file(path: str | Path) -> int:
 
     if table_name in APPEND_ONLY_TABLES:
         if not exists:
-            print(f"Creating new append-only table and inserting rows: {table_name}")
+            print(
+                f"Creating new append-only table and inserting rows: {table_name}",
+                flush=True,
+            )
             append_dataframe(df, table_name)
         else:
-            print(f"Appending rows into existing append-only table: {table_name}")
+            print(
+                f"Appending rows into existing append-only table: {table_name}",
+                flush=True,
+            )
             append_dataframe(df, table_name)
         return len(df)
 
@@ -202,13 +207,19 @@ def import_file(path: str | Path) -> int:
             )
 
         if not exists:
-            print(f"Creating new upsert table and inserting rows: {table_name}")
+            print(
+                f"Creating new upsert table and inserting rows: {table_name}",
+                flush=True,
+            )
             create_table_and_seed(df, table_name, key_columns)
         else:
-            print(f"Upserting rows into existing table: {table_name}")
+            print(f"Upserting rows into existing table: {table_name}", flush=True)
             upsert_dataframe(df, table_name, key_columns)
         return len(df)
 
-    print(f"Table '{table_name}' is not classified. Defaulting to append-only.")
+    print(
+        f"Table '{table_name}' is not classified. Defaulting to append-only.",
+        flush=True,
+    )
     append_dataframe(df, table_name)
     return len(df)
