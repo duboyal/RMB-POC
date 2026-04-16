@@ -21,7 +21,9 @@ and perform ```git pull``` to bring down the latest changes.
 
 Run:
 
-```sudo docker compose down -v``` to reboot from scratch
+```sudo docker compose down -v``` 
+
+to reboot from scratch
 
 then:
 
