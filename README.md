@@ -30,8 +30,12 @@ then run:
 
 ```sudo docker compose up --build```
 
-(recently I've been testing just the worker container)
-```docker compose up worker```
+(recently I've been testing just the worker container some of the following commands)
+
+```
+docker compose up worker
+docker compose up --build worker
+```
 
 Make sure to get env file over with scp:
 
