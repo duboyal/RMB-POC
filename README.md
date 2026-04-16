@@ -14,6 +14,7 @@ Install on Ubuntu Server:
 - git ✅
 
 
+
 cd into Repo 
 ```RMB-POC```
 and perform ```git pull``` to bring down the latest changes.
@@ -21,11 +22,11 @@ and perform ```git pull``` to bring down the latest changes.
 
 Run:
 
-```sudo docker compose down -v``` 
+```sudo docker compose down -v --remove-orphans``` 
 
-to reboot from scratch
+to reboot from scratch, remove extra volumes and orphan containers
 
-then:
+then run:
 
 ```sudo docker compose up --build```
 
