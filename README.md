@@ -100,8 +100,8 @@ then clean out ready files with this
 ```
 rm -f ~/RMB-POC/data/{incoming,processing,processed,error}/*.ready
 ```
-then set up the three terminals, one with local host use git flow, then second terminal for remote server docker logging, then the third one for the testing by scping (dropping) the file , on the left watch the pipeline trigger off, and then watching left terminal to see the debugging output 
----------------
+#### then set up the three terminals, one with local host use git flow, then second terminal for remote server docker logging, then the third one for the testing by scping (dropping) the file , on the left watch the pipeline trigger off, and then watching left terminal to see the debugging output 
+
 ### General dev notes:
 Your git repo does not point to the database.
 
