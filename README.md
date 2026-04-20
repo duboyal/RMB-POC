@@ -51,10 +51,6 @@ or
 ```scp cust1.txt muscosql@our_ip:~/RMB-POC/data/incoming/test_cust1.txt```
 
 
-OR Test:
-
-echo "order_no,customer_no,customer_name,order_date,invoice_date,warehouse_no,total_cases,total_gross_weight
-1,123,ACME,04/10/26,04/10/26,01,10,100" > data/incoming/test.ready
 
 #### Whenever you want to test the code changes you just pushed to github, make sure to PULL the code changes down when on the UBUNTU server, then run ```docker compose --build``` and ```docker compose up``` 
 
