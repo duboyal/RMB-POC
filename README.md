@@ -73,6 +73,17 @@ then drop appropiate file into
 ```
 RMB-POC/data/incoming/
 ```
+
+one way to quickly test the pipeline file transfer from within the muscosql server is :
+```
+cp FileTestRepo/cust1.txt data/incoming/cust1.ready
+```
+
+then to test it with like remote file transfer I would do this
+
+```
+scp ~/Desktop/cust1.ready muscosql@<ip_here>:/home/muscosql/RMB-POC/data/incoming/
+```
 ---------------
 ### General dev notes:
 Your git repo does not point to the database.
