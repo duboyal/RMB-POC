@@ -45,6 +45,15 @@ def utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def load_dataframe(path: Path) -> pd.DataFrame:
+    return pd.read_csv(
+        path,
+        sep="|",
+        dtype=str,
+        skipinitialspace=True,
+    ).fillna("")
+
+
 def add_timestamps(df: pd.DataFrame) -> pd.DataFrame:
     now = utc_now()
     df = df.copy()
@@ -178,7 +187,7 @@ def upsert_dataframe(
 
 def import_file(path: str | Path) -> int:
     path = Path(path)
-    df = pd.read_csv(path, sep="\t")
+    df = load_dataframe(path)
     table_name = sanitize_table_name(path)
     df = add_timestamps(df)
 
