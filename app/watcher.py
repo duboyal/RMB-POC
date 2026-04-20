@@ -21,6 +21,15 @@ def ensure_directories() -> None:
         print(f"Ensured directory exists: {d}", flush=True)
 
 
+def remove_if_exists(path: Path) -> None:
+    if path.exists():
+        if path.is_file():
+            path.unlink()
+            print(f"Removed stale file: {path}", flush=True)
+        else:
+            raise ValueError(f"Expected file but found directory: {path}")
+
+
 class Handler(FileSystemEventHandler):
     def on_created(self, event):
         if event.is_directory:
@@ -35,19 +44,45 @@ class Handler(FileSystemEventHandler):
 
         time.sleep(1)
 
+        if not src.exists():
+            print(f"Source file no longer exists, skipping: {src}", flush=True)
+            return
+
         proc = PROCESSING / src.name
-        print(f"Moving {src.name} -> {proc}", flush=True)
-        shutil.move(src, proc)
+        processed_dest = PROCESSED / src.name
+        error_dest = ERROR / src.name
 
         try:
+            remove_if_exists(proc)
+            print(f"Moving {src.name} -> {proc}", flush=True)
+            shutil.move(src, proc)
+
             row_count = import_file(proc)
-            shutil.move(proc, PROCESSED / proc.name)
+
+            remove_if_exists(processed_dest)
+            shutil.move(proc, processed_dest)
             print(f"Processed {proc.name} ({row_count} rows)", flush=True)
+
         except Exception as e:
-            print(f"Error {proc.name}: {e}", flush=True)
+            print(f"Error {src.name}: {e}", flush=True)
             traceback.print_exc()
-            shutil.move(proc, ERROR / proc.name)
-            print(f"Moved {proc.name} to error folder", flush=True)
+
+            try:
+                if proc.exists():
+                    remove_if_exists(error_dest)
+                    shutil.move(proc, error_dest)
+                    print(f"Moved {proc.name} to error folder", flush=True)
+                else:
+                    print(
+                        f"Could not move {src.name} to error folder because processing file does not exist.",
+                        flush=True,
+                    )
+            except Exception as move_error:
+                print(
+                    f"Failed while moving errored file to error folder: {move_error}",
+                    flush=True,
+                )
+                traceback.print_exc()
 
 
 if __name__ == "__main__":
