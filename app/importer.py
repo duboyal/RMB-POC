@@ -188,6 +188,10 @@ def upsert_dataframe(
 def import_file(path: str | Path) -> int:
     path = Path(path)
     df = load_dataframe(path)
+
+    print("COLUMNS:", df.columns.tolist(), flush=True)
+    print(df.head(5).to_string(), flush=True)
+
     table_name = sanitize_table_name(path)
     df = add_timestamps(df)
 
