@@ -46,12 +46,16 @@ def utc_now() -> datetime:
 
 
 def load_dataframe(path: Path) -> pd.DataFrame:
-    return pd.read_csv(
+    df = pd.read_csv(
         path,
         sep="|",
         dtype=str,
         skipinitialspace=True,
+        index_col=False,
     ).fillna("")
+
+    df.columns = df.columns.str.strip()
+    return df
 
 
 def add_timestamps(df: pd.DataFrame) -> pd.DataFrame:
