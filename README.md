@@ -88,7 +88,7 @@ cd ~/RMB-POC
 cp ../FileTestRepo/cust1.txt data/incoming/cust1.ready
 ```
 then observe errors on the other terminal.
--
+
 
 then to test it with like remote file transfer I would do this
 
