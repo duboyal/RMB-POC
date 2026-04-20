@@ -80,7 +80,34 @@ def ensure_no_duplicate_keys(
     df: pd.DataFrame, key_columns: list[str], table_name: str
 ) -> None:
     duplicated = df[df.duplicated(subset=key_columns, keep=False)]
+
     if not duplicated.empty:
+        print("KEY COLUMNS:", key_columns, flush=True)
+
+        if "CUSTOMER NUMBER" in df.columns:
+            print(
+                "CUSTOMER NUMBER sample:",
+                df["CUSTOMER NUMBER"].head(20).tolist(),
+                flush=True,
+            )
+
+        if "CUSTOMER NAME" in df.columns:
+            print(
+                "CUSTOMER NAME sample:",
+                df["CUSTOMER NAME"].head(20).tolist(),
+                flush=True,
+            )
+
+        debug_cols = [col for col in key_columns if col in duplicated.columns]
+        if "CUSTOMER NAME" in duplicated.columns and "CUSTOMER NAME" not in debug_cols:
+            debug_cols.append("CUSTOMER NAME")
+
+        print(
+            "DUPLICATED ROWS PREVIEW:",
+            duplicated[debug_cols].head(20).to_string(),
+            flush=True,
+        )
+
         sample = duplicated[key_columns].head(10).to_dict(orient="records")
         raise ValueError(
             f"Cannot create primary key for table '{table_name}' because incoming file contains duplicate key values. "
