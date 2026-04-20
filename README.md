@@ -69,15 +69,26 @@ then run
 ```
 docker compose up --build
 ```
-then drop appropiate file into
+or 
+```
+docker compose down
+sudo docker compose down -v --remove-orphans
+docker compose up --build worker
+```
+make sure that stays up in one seperate terminal that will be the watch terminal for logging and errors
+
+then drop the .ready file into
 ```
 RMB-POC/data/incoming/
 ```
 
 one way to quickly test the pipeline file transfer from within the muscosql server is :
 ```
-cp FileTestRepo/cust1.txt data/incoming/cust1.ready
+cd ~/RMB-POC
+cp ../FileTestRepo/cust1.txt data/incoming/cust1.ready
 ```
+then observe errors on the other terminal.
+-
 
 then to test it with like remote file transfer I would do this
 
