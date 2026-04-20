@@ -95,6 +95,11 @@ then to test it with like remote file transfer I would do this
 ```
 scp ~/Desktop/cust1.ready muscosql@<ip_here>:/home/muscosql/RMB-POC/data/incoming/
 ```
+
+then clean out ready files with this 
+```
+rm -f ~/RMB-POC/data/{incoming,processing,processed,error}/*.ready
+```
 ---------------
 ### General dev notes:
 Your git repo does not point to the database.
