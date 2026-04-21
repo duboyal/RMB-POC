@@ -218,6 +218,7 @@ because it uses the same app environment as your container , dependencies are al
 
 then do 
 ```
+docker compose down -v --remove-orphans 
 docker compose up --build -d
 ```
 then do 
