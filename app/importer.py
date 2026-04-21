@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 from sqlalchemy import inspect
 
-from db import engine
+from db import engine as default_engine
 
 
 PRIMARY_KEYS = {
@@ -74,7 +74,7 @@ def add_timestamps(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def table_exists(table_name: str) -> bool:
+def table_exists(table_name: str, engine) -> bool:
     return inspect(engine).has_table(table_name)
 
 
@@ -100,11 +100,11 @@ def ensure_no_duplicate_keys(
         )
 
 
-def create_table_from_dataframe(df: pd.DataFrame, table_name: str) -> None:
+def create_table_from_dataframe(df: pd.DataFrame, table_name: str, engine) -> None:
     df.head(0).to_sql(table_name, con=engine, if_exists="fail", index=False)
 
 
-def add_primary_key_constraint(table_name: str, key_columns: list[str]) -> None:
+def add_primary_key_constraint(table_name: str, key_columns: list[str], engine) -> None:
     constraint_name = f"{table_name}_pk"
     quoted_columns = quote_ident_list(key_columns)
 
@@ -135,7 +135,7 @@ def dataframe_to_copy_buffer(df: pd.DataFrame) -> io.StringIO:
     return buffer
 
 
-def copy_dataframe_to_table(df: pd.DataFrame, table_name: str) -> None:
+def copy_dataframe_to_table(df: pd.DataFrame, table_name: str, engine) -> None:
     buffer = dataframe_to_copy_buffer(df)
     quoted_table = quote_ident(table_name)
     quoted_columns = quote_ident_list(df.columns.tolist())
@@ -156,32 +156,36 @@ def copy_dataframe_to_table(df: pd.DataFrame, table_name: str) -> None:
         raw_conn.close()
 
 
-def append_dataframe(df: pd.DataFrame, table_name: str) -> None:
-    if not table_exists(table_name):
-        create_table_from_dataframe(df, table_name)
-    copy_dataframe_to_table(df, table_name)
+def append_dataframe(df: pd.DataFrame, table_name: str, engine) -> None:
+    if not table_exists(table_name, engine):
+        create_table_from_dataframe(df, table_name, engine)
+    copy_dataframe_to_table(df, table_name, engine)
 
 
 def create_table_and_seed(
-    df: pd.DataFrame, table_name: str, key_columns: list[str] | None = None
+    df: pd.DataFrame,
+    table_name: str,
+    engine,
+    key_columns: list[str] | None = None,
 ) -> None:
     if key_columns:
         ensure_key_columns_present(df, key_columns, table_name)
         ensure_no_duplicate_keys(df, key_columns, table_name)
 
-    create_table_from_dataframe(df, table_name)
+    create_table_from_dataframe(df, table_name, engine)
 
     if key_columns:
-        add_primary_key_constraint(table_name, key_columns)
+        add_primary_key_constraint(table_name, key_columns, engine)
         print(f"Added primary key on {table_name}: {key_columns}", flush=True)
 
-    copy_dataframe_to_table(df, table_name)
+    copy_dataframe_to_table(df, table_name, engine)
 
 
 def upsert_dataframe(
     df: pd.DataFrame,
     table_name: str,
     key_columns: list[str],
+    engine,
 ) -> None:
     if df.empty:
         print(f"No rows to upsert for table: {table_name}", flush=True)
@@ -297,14 +301,16 @@ def upsert_dataframe(
         raw_conn.close()
 
 
-def import_file(path: str | Path) -> int:
+def import_file(path: str | Path, engine=None) -> int:
+    engine = engine or default_engine
+
     path = Path(path)
     df = load_dataframe(path)
 
     table_name = sanitize_table_name(path)
     df = add_timestamps(df)
 
-    exists = table_exists(table_name)
+    exists = table_exists(table_name, engine)
     key_columns = PRIMARY_KEYS.get(table_name)
 
     if table_name in APPEND_ONLY_TABLES:
@@ -313,13 +319,13 @@ def import_file(path: str | Path) -> int:
                 f"Creating new append-only table and inserting rows: {table_name}",
                 flush=True,
             )
-            append_dataframe(df, table_name)
+            append_dataframe(df, table_name, engine)
         else:
             print(
                 f"Appending rows into existing append-only table: {table_name}",
                 flush=True,
             )
-            append_dataframe(df, table_name)
+            append_dataframe(df, table_name, engine)
 
         print(f"IMPORT COMPLETE: {table_name} ({len(df)} rows)", flush=True)
         return len(df)
@@ -335,10 +341,10 @@ def import_file(path: str | Path) -> int:
                 f"Creating new upsert table and inserting rows: {table_name}",
                 flush=True,
             )
-            create_table_and_seed(df, table_name, key_columns)
+            create_table_and_seed(df, table_name, engine, key_columns)
         else:
             print(f"Upserting rows into existing table: {table_name}", flush=True)
-            upsert_dataframe(df, table_name, key_columns)
+            upsert_dataframe(df, table_name, key_columns, engine)
 
         print(f"IMPORT COMPLETE: {table_name} ({len(df)} rows)", flush=True)
         return len(df)
@@ -347,6 +353,6 @@ def import_file(path: str | Path) -> int:
         f"Table '{table_name}' is not classified. Defaulting to append-only.",
         flush=True,
     )
-    append_dataframe(df, table_name)
+    append_dataframe(df, table_name, engine)
     print(f"IMPORT COMPLETE: {table_name} ({len(df)} rows)", flush=True)
     return len(df)

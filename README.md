@@ -206,3 +206,19 @@ then open a new terminal, ssh into it and then do
 ```
 docker compose run --rm worker env | grep DB_
 ```
+
+
+### TESTING:
+create the test database 
+```
+sudo -u postgres pg_dump -d muscosql --schema-only | sudo -u postgres psql -d muscosql_test
+```
+then
+because it uses the same app environment as your container , dependencies are already installed in that container, avoids mismatch between server Python and container Python
+```
+docker compose exec api pytest
+```
+    -	muscosql = normal DB
+	-	muscosql_test = test DB
+
+and pytest should point to muscosql_test.
