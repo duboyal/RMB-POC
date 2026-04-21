@@ -198,9 +198,21 @@ def upsert_dataframe(
         if col not in key_columns and col != "created_at"
     ]
 
+    total_records = len(records)
+    print(
+        f"Starting upsert for {table_name}: {total_records} rows in batches of {chunk_size}",
+        flush=True,
+    )
+
     with engine.begin() as conn:
-        for start in range(0, len(records), chunk_size):
+        for start in range(0, total_records, chunk_size):
             batch = records[start : start + chunk_size]
+            batch_end = start + len(batch)
+
+            print(
+                f"Upsert progress for {table_name}: rows {start + 1}-{batch_end} of {total_records}",
+                flush=True,
+            )
 
             stmt = insert(table).values(batch)
             set_clause = {col: stmt.excluded[col] for col in update_columns}
@@ -214,6 +226,8 @@ def upsert_dataframe(
             )
 
             conn.execute(upsert_stmt)
+
+    print(f"Finished upsert for {table_name}", flush=True)
 
 
 def import_file(path: str | Path) -> int:
@@ -242,6 +256,8 @@ def import_file(path: str | Path) -> int:
                 flush=True,
             )
             append_dataframe(df, table_name)
+
+        print(f"IMPORT COMPLETE: {table_name} ({len(df)} rows)", flush=True)
         return len(df)
 
     if table_name in UPSERT_TABLES:
@@ -259,6 +275,8 @@ def import_file(path: str | Path) -> int:
         else:
             print(f"Upserting rows into existing table: {table_name}", flush=True)
             upsert_dataframe(df, table_name, key_columns)
+
+        print(f"IMPORT COMPLETE: {table_name} ({len(df)} rows)", flush=True)
         return len(df)
 
     print(
@@ -266,4 +284,5 @@ def import_file(path: str | Path) -> int:
         flush=True,
     )
     append_dataframe(df, table_name)
+    print(f"IMPORT COMPLETE: {table_name} ({len(df)} rows)", flush=True)
     return len(df)
