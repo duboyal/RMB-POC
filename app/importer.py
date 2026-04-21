@@ -212,6 +212,7 @@ def upsert_dataframe(
     quoted_target = quote_ident(table_name)
     quoted_temp = quote_ident(temp_table)
     quoted_columns = quote_ident_list(writable_columns)
+    select_columns = ", ".join(f"s.{quote_ident(col)}" for col in writable_columns)
 
     join_condition = " AND ".join(
         f"t.{quote_ident(col)} = s.{quote_ident(col)}" for col in key_columns
@@ -250,7 +251,7 @@ def upsert_dataframe(
 
     insert_sql = f"""
     INSERT INTO {quoted_target} ({quoted_columns})
-    SELECT {quoted_columns}
+    SELECT {select_columns}
     FROM {quoted_temp} AS s
     LEFT JOIN {quoted_target} AS t
       ON {join_condition}
@@ -305,47 +306,3 @@ def import_file(path: str | Path) -> int:
 
     exists = table_exists(table_name)
     key_columns = PRIMARY_KEYS.get(table_name)
-
-    if table_name in APPEND_ONLY_TABLES:
-        if not exists:
-            print(
-                f"Creating new append-only table and inserting rows: {table_name}",
-                flush=True,
-            )
-            append_dataframe(df, table_name)
-        else:
-            print(
-                f"Appending rows into existing append-only table: {table_name}",
-                flush=True,
-            )
-            append_dataframe(df, table_name)
-
-        print(f"IMPORT COMPLETE: {table_name} ({len(df)} rows)", flush=True)
-        return len(df)
-
-    if table_name in UPSERT_TABLES:
-        if not key_columns:
-            raise ValueError(
-                f"Table '{table_name}' is marked as UPSERT but has no PRIMARY_KEYS entry."
-            )
-
-        if not exists:
-            print(
-                f"Creating new upsert table and inserting rows: {table_name}",
-                flush=True,
-            )
-            create_table_and_seed(df, table_name, key_columns)
-        else:
-            print(f"Upserting rows into existing table: {table_name}", flush=True)
-            upsert_dataframe(df, table_name, key_columns)
-
-        print(f"IMPORT COMPLETE: {table_name} ({len(df)} rows)", flush=True)
-        return len(df)
-
-    print(
-        f"Table '{table_name}' is not classified. Defaulting to append-only.",
-        flush=True,
-    )
-    append_dataframe(df, table_name)
-    print(f"IMPORT COMPLETE: {table_name} ({len(df)} rows)", flush=True)
-    return len(df)
