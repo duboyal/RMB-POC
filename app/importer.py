@@ -1,10 +1,10 @@
+import io
 import re
 from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
-from sqlalchemy import MetaData, Table, inspect, text
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import inspect
 
 from db import engine
 
@@ -43,6 +43,14 @@ def sanitize_table_name(path: Path) -> str:
 
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def quote_ident(name: str) -> str:
+    return '"' + name.replace('"', '""') + '"'
+
+
+def quote_ident_list(names: list[str]) -> str:
+    return ", ".join(quote_ident(name) for name in names)
 
 
 def load_dataframe(path: Path) -> pd.DataFrame:
@@ -84,34 +92,7 @@ def ensure_no_duplicate_keys(
     df: pd.DataFrame, key_columns: list[str], table_name: str
 ) -> None:
     duplicated = df[df.duplicated(subset=key_columns, keep=False)]
-
     if not duplicated.empty:
-        print("KEY COLUMNS:", key_columns, flush=True)
-
-        if "CUSTOMER NUMBER" in df.columns:
-            print(
-                "CUSTOMER NUMBER sample:",
-                df["CUSTOMER NUMBER"].head(20).tolist(),
-                flush=True,
-            )
-
-        if "CUSTOMER NAME" in df.columns:
-            print(
-                "CUSTOMER NAME sample:",
-                df["CUSTOMER NAME"].head(20).tolist(),
-                flush=True,
-            )
-
-        debug_cols = [col for col in key_columns if col in duplicated.columns]
-        if "CUSTOMER NAME" in duplicated.columns and "CUSTOMER NAME" not in debug_cols:
-            debug_cols.append("CUSTOMER NAME")
-
-        print(
-            "DUPLICATED ROWS PREVIEW:",
-            duplicated[debug_cols].head(20).to_string(),
-            flush=True,
-        )
-
         sample = duplicated[key_columns].head(10).to_dict(orient="records")
         raise ValueError(
             f"Cannot create primary key for table '{table_name}' because incoming file contains duplicate key values. "
@@ -119,23 +100,66 @@ def ensure_no_duplicate_keys(
         )
 
 
-def append_dataframe(df: pd.DataFrame, table_name: str) -> None:
-    df.to_sql(table_name, con=engine, if_exists="append", index=False)
+def create_table_from_dataframe(df: pd.DataFrame, table_name: str) -> None:
+    df.head(0).to_sql(table_name, con=engine, if_exists="fail", index=False)
 
 
 def add_primary_key_constraint(table_name: str, key_columns: list[str]) -> None:
     constraint_name = f"{table_name}_pk"
-    quoted_columns = ", ".join(f'"{col}"' for col in key_columns)
+    quoted_columns = quote_ident_list(key_columns)
 
-    sql = text(
-        f"""
-        ALTER TABLE "{table_name}"
-        ADD CONSTRAINT "{constraint_name}" PRIMARY KEY ({quoted_columns})
-        """
-    )
+    sql = f"""
+    ALTER TABLE {quote_ident(table_name)}
+    ADD CONSTRAINT {quote_ident(constraint_name)} PRIMARY KEY ({quoted_columns})
+    """
 
     with engine.begin() as conn:
-        conn.execute(sql)
+        conn.exec_driver_sql(sql)
+
+
+def dataframe_to_copy_buffer(df: pd.DataFrame) -> io.StringIO:
+    copy_df = df.copy()
+
+    for col in copy_df.columns:
+        copy_df[col] = copy_df[col].apply(
+            lambda x: (
+                ""
+                if pd.isna(x)
+                else x.isoformat() if hasattr(x, "isoformat") else str(x)
+            )
+        )
+
+    buffer = io.StringIO()
+    copy_df.to_csv(buffer, index=False, header=False, sep="\t", na_rep="")
+    buffer.seek(0)
+    return buffer
+
+
+def copy_dataframe_to_table(df: pd.DataFrame, table_name: str) -> None:
+    buffer = dataframe_to_copy_buffer(df)
+    quoted_table = quote_ident(table_name)
+    quoted_columns = quote_ident_list(df.columns.tolist())
+
+    raw_conn = engine.raw_connection()
+    try:
+        with raw_conn.cursor() as cur:
+            copy_sql = (
+                f"COPY {quoted_table} ({quoted_columns}) "
+                "FROM STDIN WITH (FORMAT CSV, DELIMITER E'\\t', NULL '', HEADER FALSE)"
+            )
+            cur.copy_expert(copy_sql, buffer)
+        raw_conn.commit()
+    except Exception:
+        raw_conn.rollback()
+        raise
+    finally:
+        raw_conn.close()
+
+
+def append_dataframe(df: pd.DataFrame, table_name: str) -> None:
+    if not table_exists(table_name):
+        create_table_from_dataframe(df, table_name)
+    copy_dataframe_to_table(df, table_name)
 
 
 def create_table_and_seed(
@@ -145,18 +169,19 @@ def create_table_and_seed(
         ensure_key_columns_present(df, key_columns, table_name)
         ensure_no_duplicate_keys(df, key_columns, table_name)
 
-    append_dataframe(df, table_name)
+    create_table_from_dataframe(df, table_name)
 
     if key_columns:
         add_primary_key_constraint(table_name, key_columns)
         print(f"Added primary key on {table_name}: {key_columns}", flush=True)
+
+    copy_dataframe_to_table(df, table_name)
 
 
 def upsert_dataframe(
     df: pd.DataFrame,
     table_name: str,
     key_columns: list[str],
-    chunk_size: int = 1000,
 ) -> None:
     if df.empty:
         print(f"No rows to upsert for table: {table_name}", flush=True)
@@ -164,9 +189,8 @@ def upsert_dataframe(
 
     ensure_key_columns_present(df, key_columns, table_name)
 
-    metadata = MetaData()
-    table = Table(table_name, metadata, autoload_with=engine)
-    db_columns = {col.name for col in table.columns}
+    inspector = inspect(engine)
+    db_columns = {col["name"] for col in inspector.get_columns(table_name)}
 
     unknown_input_columns = [col for col in df.columns if col not in db_columns]
     if unknown_input_columns:
@@ -181,16 +205,21 @@ def upsert_dataframe(
         )
 
     writable_columns = [col for col in df.columns if col in db_columns]
+    df = df[writable_columns].copy()
 
-    records = (
-        df[writable_columns]
-        .where(pd.notnull(df[writable_columns]), None)
-        .to_dict(orient="records")
+    temp_table = f"{table_name}_staging_temp"
+
+    quoted_target = quote_ident(table_name)
+    quoted_temp = quote_ident(temp_table)
+    quoted_columns = quote_ident_list(writable_columns)
+
+    join_condition = " AND ".join(
+        f"t.{quote_ident(col)} = s.{quote_ident(col)}" for col in key_columns
     )
 
-    if not records:
-        print(f"No valid records to upsert for table: {table_name}", flush=True)
-        return
+    insert_not_exists_condition = " AND ".join(
+        f"t.{quote_ident(col)} IS NULL" for col in key_columns
+    )
 
     update_columns = [
         col
@@ -198,44 +227,78 @@ def upsert_dataframe(
         if col not in key_columns and col != "created_at"
     ]
 
-    total_records = len(records)
-    print(
-        f"Starting upsert for {table_name}: {total_records} rows in batches of {chunk_size}",
-        flush=True,
-    )
+    set_assignments = []
+    for col in update_columns:
+        if col == "updated_at":
+            set_assignments.append(f"{quote_ident(col)} = NOW()")
+        else:
+            set_assignments.append(f"{quote_ident(col)} = s.{quote_ident(col)}")
 
-    with engine.begin() as conn:
-        for start in range(0, total_records, chunk_size):
-            batch = records[start : start + chunk_size]
-            batch_end = start + len(batch)
+    change_conditions = [
+        f"t.{quote_ident(col)} IS DISTINCT FROM s.{quote_ident(col)}"
+        for col in update_columns
+        if col != "updated_at"
+    ]
+
+    update_sql = f"""
+    UPDATE {quoted_target} AS t
+    SET {", ".join(set_assignments)}
+    FROM {quoted_temp} AS s
+    WHERE {join_condition}
+      AND ({' OR '.join(change_conditions)})
+    """
+
+    insert_sql = f"""
+    INSERT INTO {quoted_target} ({quoted_columns})
+    SELECT {quoted_columns}
+    FROM {quoted_temp} AS s
+    LEFT JOIN {quoted_target} AS t
+      ON {join_condition}
+    WHERE {insert_not_exists_condition}
+    """
+
+    raw_conn = engine.raw_connection()
+    try:
+        with raw_conn.cursor() as cur:
+            print(f"Creating temp staging table for {table_name}", flush=True)
+            cur.execute(
+                f"CREATE TEMP TABLE {quoted_temp} (LIKE {quoted_target} INCLUDING DEFAULTS) ON COMMIT DROP"
+            )
 
             print(
-                f"Upsert progress for {table_name}: rows {start + 1}-{batch_end} of {total_records}",
+                f"Copying incoming rows into temp staging table for {table_name}",
                 flush=True,
             )
-
-            stmt = insert(table).values(batch)
-            set_clause = {col: stmt.excluded[col] for col in update_columns}
-
-            if "updated_at" in db_columns:
-                set_clause["updated_at"] = utc_now()
-
-            upsert_stmt = stmt.on_conflict_do_update(
-                index_elements=key_columns,
-                set_=set_clause,
+            buffer = dataframe_to_copy_buffer(df)
+            copy_sql = (
+                f"COPY {quoted_temp} ({quoted_columns}) "
+                "FROM STDIN WITH (FORMAT CSV, DELIMITER E'\\t', NULL '', HEADER FALSE)"
             )
+            cur.copy_expert(copy_sql, buffer)
 
-            conn.execute(upsert_stmt)
+            print(f"Updating changed rows for {table_name}", flush=True)
+            cur.execute(update_sql)
+            updated_count = cur.rowcount
 
-    print(f"Finished upsert for {table_name}", flush=True)
+            print(f"Inserting new rows for {table_name}", flush=True)
+            cur.execute(insert_sql)
+            inserted_count = cur.rowcount
+
+        raw_conn.commit()
+        print(
+            f"Finished upsert for {table_name}: inserted={inserted_count}, updated={updated_count}",
+            flush=True,
+        )
+    except Exception:
+        raw_conn.rollback()
+        raise
+    finally:
+        raw_conn.close()
 
 
 def import_file(path: str | Path) -> int:
     path = Path(path)
     df = load_dataframe(path)
-
-    print("COLUMNS:", df.columns.tolist(), flush=True)
-    print(df.head(5).to_string(), flush=True)
 
     table_name = sanitize_table_name(path)
     df = add_timestamps(df)
