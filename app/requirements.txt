@@ -6,4 +6,4 @@ psycopg2-binary
 watchdog
 pytest
 pytest-cov
-python-dotenvlook
+python-dotenv

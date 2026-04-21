@@ -209,12 +209,19 @@ docker compose run --rm worker env | grep DB_
 
 
 ### TESTING:
-create the test database 
+create the test database using the old schema
 ```
 sudo -u postgres pg_dump -d muscosql --schema-only | sudo -u postgres psql -d muscosql_test
 ```
 then
 because it uses the same app environment as your container , dependencies are already installed in that container, avoids mismatch between server Python and container Python
+
+then do 
+```
+docker compose up --build -d
+```
+then do 
+
 ```
 docker compose exec api pytest
 ```
