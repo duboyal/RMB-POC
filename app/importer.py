@@ -6,7 +6,8 @@ from pathlib import Path
 import pandas as pd
 from sqlalchemy import inspect
 
-from db import engine as default_engine
+# from db import engine as default_engine
+from .db import engine as default_engine
 
 
 PRIMARY_KEYS = {
