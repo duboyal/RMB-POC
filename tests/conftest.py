@@ -137,3 +137,22 @@ def assert_row_count(fetch_val):
         assert count == expected
 
     return _assert
+
+
+@pytest.fixture(autouse=True)
+def clean_tables(engine: Engine) -> Generator[None, None, None]:
+    existing_tables = set(inspect(engine).get_table_names())
+
+    with engine.begin() as conn:
+        for table in reversed(TABLES_TO_CLEAN):
+            if table in existing_tables:
+                conn.execute(text(f"TRUNCATE TABLE {table} RESTART IDENTITY CASCADE"))
+
+    yield
+
+    existing_tables = set(inspect(engine).get_table_names())
+
+    with engine.begin() as conn:
+        for table in reversed(TABLES_TO_CLEAN):
+            if table in existing_tables:
+                conn.execute(text(f"TRUNCATE TABLE {table} RESTART IDENTITY CASCADE"))
