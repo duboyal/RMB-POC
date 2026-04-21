@@ -1,7 +1,11 @@
-import pandas as pd
+import sys
 from pathlib import Path
 
-from importer import import_file
+import pandas as pd
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from app.importer import import_file
 
 
 def test_cust1_insert(tmp_path, engine, fetch_one):
