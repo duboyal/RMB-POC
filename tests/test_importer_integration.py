@@ -1,7 +1,7 @@
 import pandas as pd
 from pathlib import Path
 
-from app.importer import import_file
+from importer import import_file
 
 
 def test_cust1_insert(tmp_path, engine, fetch_one):
