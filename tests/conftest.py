@@ -2,7 +2,7 @@ import os
 from collections.abc import Generator
 
 import pytest
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, text, inspect
 from sqlalchemy.engine import Engine
 
 
