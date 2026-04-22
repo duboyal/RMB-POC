@@ -6,7 +6,7 @@ from pathlib import Path
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
 
-from importer import import_file
+from app.importer import import_file
 
 INCOMING = Path("/data/incoming")
 PROCESSING = Path("/data/processing")

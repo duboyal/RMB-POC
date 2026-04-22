@@ -2,7 +2,11 @@
 
 (readme still WIP, should add docs for configuring new servers with Ciccos troubleshooting with chatG)
 
-ssh onto ubuntu server 
+#### philosophy:
+test driven development and modular containerized , seperation of concerns for troubleshooting, docker for reproducible development environment variables (downloaded packages, versioning, instalation paths etc, consistently reproducible on any machine this way)
+
+
+1) ssh onto ubuntu server 
 
 ```
 ssh muscosql@our.ip.adress
@@ -29,9 +33,9 @@ Run:
 (may need sudo infront of that)
 this is to reboot from scratch, remove extra volumes and orphan containers
 
-then run:
+then run: (again may need sudo)
 
-```sudo docker compose up --build```
+``` docker compose up --build```
 
 (recently I've been testing just the worker container some of the following commands)
 
