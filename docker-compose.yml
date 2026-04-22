@@ -19,4 +19,4 @@ services:
       PYTHONUNBUFFERED: "1"
     volumes:
       - .:/app
-    command: python -u app/watcher.py
+    command: python -u -m app.watcher
