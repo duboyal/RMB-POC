@@ -233,7 +233,26 @@ then do
 ```
 docker compose exec api pytest
 ```
-    -	muscosql = normal DB
-	-	muscosql_test = test DB
+
+if I want to test just one file then
+
+```
+docker compose exec api pytest tests/test_importer_integration.py
+```
+
+if I want to test just one specific test
+
+```
+docker compose exec api pytest tests/test_importer_integration.py -k cust1
+```
 
 and pytest should point to muscosql_test.
+we would have , in theory 
+
+on this server: (two databases on this server)
+muscosql = normal DB
+muscosql_test = test DB
+
+but now we have a new server and we are calling it 
+mainsql
+so that will be the production server eventually <3
