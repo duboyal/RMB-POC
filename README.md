@@ -24,9 +24,10 @@ and perform ```git pull``` to bring down the latest changes.
 
 Run:
 
-```sudo docker compose down -v --remove-orphans``` 
+```docker compose down -v --remove-orphans``` 
 
-to reboot from scratch, remove extra volumes and orphan containers
+(may need sudo infront of that)
+this is to reboot from scratch, remove extra volumes and orphan containers
 
 then run:
 
