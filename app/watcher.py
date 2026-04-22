@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import shutil
 import time
 import traceback
@@ -6,13 +8,22 @@ from pathlib import Path
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
 
-from app.importer import import_file
+from app.duckdb_pipeline.jobs.cust1_job import run_cust1_job
+
 
 INCOMING = Path("/data/incoming")
 PROCESSING = Path("/data/processing")
 PROCESSED = Path("/data/processed")
 ERROR = Path("/data/error")
 LOGS = Path("/data/logs")
+
+
+READY_TO_DATA_MAP = {
+    "cust1.ready": "cust1.txt",
+    # later:
+    # "heder1.ready": "heder1.txt",
+    # "detal1.ready": "detal1.txt",
+}
 
 
 def ensure_directories() -> None:
@@ -30,63 +41,123 @@ def remove_if_exists(path: Path) -> None:
             raise ValueError(f"Expected file but found directory: {path}")
 
 
-class Handler(FileSystemEventHandler):
-    def on_created(self, event):
-        if event.is_directory:
-            return
+def get_data_file_for_ready(ready_file: Path) -> Path:
+    """
+    Map a ready marker file to its real data file.
 
-        src = Path(event.src_path)
-        print(f"Detected new file: {src}", flush=True)
+    Example:
+        cust1.ready -> cust1.txt
+    """
+    data_name = READY_TO_DATA_MAP.get(ready_file.name.lower())
+    if not data_name:
+        raise ValueError(
+            f"No data-file mapping configured for ready file: {ready_file.name}"
+        )
 
-        if src.suffix != ".ready":
-            print(f"Skipping non-.ready file: {src.name}", flush=True)
-            return
+    return ready_file.parent / data_name
 
-        time.sleep(1)
 
-        if not src.exists():
-            print(f"Source file no longer exists, skipping: {src}", flush=True)
-            return
+def process_ready_file(ready_file: Path) -> None:
+    print(f"Detected ready file: {ready_file}", flush=True)
 
-        proc = PROCESSING / src.name
-        processed_dest = PROCESSED / src.name
-        error_dest = ERROR / src.name
+    if ready_file.suffix.lower() != ".ready":
+        print(f"Skipping non-.ready file: {ready_file.name}", flush=True)
+        return
+
+    time.sleep(1)
+
+    if not ready_file.exists():
+        print(f"Ready file no longer exists, skipping: {ready_file}", flush=True)
+        return
+
+    data_file = get_data_file_for_ready(ready_file)
+
+    if not data_file.exists():
+        raise FileNotFoundError(
+            f"Ready file {ready_file.name} found, but matching data file does not exist: {data_file.name}"
+        )
+
+    proc_ready = PROCESSING / ready_file.name
+    proc_data = PROCESSING / data_file.name
+
+    processed_ready = PROCESSED / ready_file.name
+    processed_data = PROCESSED / data_file.name
+
+    error_ready = ERROR / ready_file.name
+    error_data = ERROR / data_file.name
+
+    try:
+        remove_if_exists(proc_ready)
+        remove_if_exists(proc_data)
+
+        print(f"Moving {ready_file.name} -> {proc_ready}", flush=True)
+        shutil.move(ready_file, proc_ready)
+
+        print(f"Moving {data_file.name} -> {proc_data}", flush=True)
+        shutil.move(data_file, proc_data)
+
+        if proc_ready.name.lower() == "cust1.ready":
+            print(f"Running CUST1 job on {proc_data}", flush=True)
+            run_cust1_job(str(proc_data))
+        else:
+            raise ValueError(f"No job configured for ready file: {proc_ready.name}")
+
+        remove_if_exists(processed_ready)
+        remove_if_exists(processed_data)
+
+        shutil.move(proc_ready, processed_ready)
+        shutil.move(proc_data, processed_data)
+
+        print(f"Processed {proc_data.name}", flush=True)
+
+    except Exception as exc:
+        print(f"Error processing {ready_file.name}: {exc}", flush=True)
+        traceback.print_exc()
 
         try:
-            remove_if_exists(proc)
-            print(f"Moving {src.name} -> {proc}", flush=True)
-            shutil.move(src, proc)
+            if proc_ready.exists():
+                remove_if_exists(error_ready)
+                shutil.move(proc_ready, error_ready)
+                print(
+                    f"Moved ready file to error folder: {proc_ready.name}", flush=True
+                )
 
-            row_count = import_file(proc)
+            if proc_data.exists():
+                remove_if_exists(error_data)
+                shutil.move(proc_data, error_data)
+                print(f"Moved data file to error folder: {proc_data.name}", flush=True)
 
-            remove_if_exists(processed_dest)
-            shutil.move(proc, processed_dest)
-            print(f"Processed {proc.name} ({row_count} rows)", flush=True)
-
-        except Exception as e:
-            print(f"Error {src.name}: {e}", flush=True)
+        except Exception as move_error:
+            print(f"Failed while moving errored files: {move_error}", flush=True)
             traceback.print_exc()
 
+
+class Handler(FileSystemEventHandler):
+    def on_created(self, event) -> None:
+        if event.is_directory:
+            return
+        process_ready_file(Path(event.src_path))
+
+
+def process_existing_ready_files() -> None:
+    """
+    Process any .ready files already present when the watcher starts.
+    """
+    if not INCOMING.exists():
+        return
+
+    for path in INCOMING.iterdir():
+        if path.is_file() and path.suffix.lower() == ".ready":
             try:
-                if proc.exists():
-                    remove_if_exists(error_dest)
-                    shutil.move(proc, error_dest)
-                    print(f"Moved {proc.name} to error folder", flush=True)
-                else:
-                    print(
-                        f"Could not move {src.name} to error folder because processing file does not exist.",
-                        flush=True,
-                    )
-            except Exception as move_error:
-                print(
-                    f"Failed while moving errored file to error folder: {move_error}",
-                    flush=True,
-                )
+                process_ready_file(path)
+            except Exception as exc:
+                print(f"Startup processing error for {path.name}: {exc}", flush=True)
                 traceback.print_exc()
 
 
 if __name__ == "__main__":
     ensure_directories()
+    process_existing_ready_files()
 
     observer = Observer()
     observer.schedule(Handler(), str(INCOMING), recursive=False)

@@ -7,3 +7,4 @@ watchdog
 pytest
 pytest-cov
 python-dotenv
+duckdb
