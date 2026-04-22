@@ -1,4 +1,6 @@
-# RMB POC
+# RMB POC 
+
+(readme still WIP, should add docs for configuring new servers with Ciccos troubleshooting with chatG)
 
 ssh onto ubuntu server 
 
