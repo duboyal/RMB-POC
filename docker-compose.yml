@@ -8,10 +8,11 @@ services:
       - .env
     environment:
       PYTHONUNBUFFERED: "1"
-      DATA_DIR: "/app/data"
-      DUCKDB_PATH: "/app/data/staging.duckdb"
+      DATA_DIR: "/data"
+      DUCKDB_PATH: "/data/staging.duckdb"
     volumes:
       - .:/app
+      - ./data:/data
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
   worker:
@@ -21,8 +22,9 @@ services:
       - .env
     environment:
       PYTHONUNBUFFERED: "1"
-      DATA_DIR: "/app/data"
-      DUCKDB_PATH: "/app/data/staging.duckdb"
+      DATA_DIR: "/data"
+      DUCKDB_PATH: "/data/staging.duckdb"
     volumes:
       - .:/app
+      - ./data:/data
     command: python -u -m app.watcher
