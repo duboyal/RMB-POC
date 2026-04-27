@@ -9,6 +9,7 @@ from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
 
 from app.duckdb_pipeline.jobs.cust1_job import run_cust1_job
+from app.duckdb_pipeline.jobs.detal1_job import run_detal1_job
 
 
 INCOMING = Path("/data/incoming")
@@ -18,11 +19,17 @@ ERROR = Path("/data/error")
 LOGS = Path("/data/logs")
 
 
+# 🔹 Map ready file → data file
 READY_TO_DATA_MAP = {
     "cust1.ready": "cust1.txt",
-    # later:
-    # "heder1.ready": "heder1.txt",
     "detal1.ready": "detal1.txt",
+}
+
+
+# 🔹 Map ready file → job function
+JOB_MAP = {
+    "cust1.ready": run_cust1_job,
+    "detal1.ready": run_detal1_job,
 }
 
 
@@ -42,12 +49,6 @@ def remove_if_exists(path: Path) -> None:
 
 
 def get_data_file_for_ready(ready_file: Path) -> Path:
-    """
-    Map a ready marker file to its real data file.
-
-    Example:
-        cust1.ready -> cust1.txt
-    """
     data_name = READY_TO_DATA_MAP.get(ready_file.name.lower())
     if not data_name:
         raise ValueError(
@@ -96,11 +97,14 @@ def process_ready_file(ready_file: Path) -> None:
         print(f"Moving {data_file.name} -> {proc_data}", flush=True)
         shutil.move(data_file, proc_data)
 
-        if proc_ready.name.lower() == "cust1.ready":
-            print(f"Running CUST1 job on {proc_data}", flush=True)
-            run_cust1_job(str(proc_data))
-        else:
+        # 🔥 JOB DISPATCH (fixed)
+        job = JOB_MAP.get(proc_ready.name.lower())
+
+        if not job:
             raise ValueError(f"No job configured for ready file: {proc_ready.name}")
+
+        print(f"Running job for {proc_ready.name} on {proc_data}", flush=True)
+        job(str(proc_data))
 
         remove_if_exists(processed_ready)
         remove_if_exists(processed_data)
@@ -140,9 +144,6 @@ class Handler(FileSystemEventHandler):
 
 
 def process_existing_ready_files() -> None:
-    """
-    Process any .ready files already present when the watcher starts.
-    """
     if not INCOMING.exists():
         return
 
