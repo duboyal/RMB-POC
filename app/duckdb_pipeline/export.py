@@ -26,7 +26,7 @@ def export_duckdb_table_to_postgres(
 
     print(f"[export] Rows to export: {len(df)}", flush=True)
     print(f"[export] Writing to Postgres table: {postgres_table}", flush=True)
-
+    print(f"[config] Writing to DB: {POSTGRES_URL}", flush=True)
     engine = create_engine(postgres_url, pool_pre_ping=True)
 
     with engine.begin() as pg_conn:
