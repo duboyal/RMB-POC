@@ -17,13 +17,17 @@ def export_duckdb_table_to_postgres(
     if not postgres_url:
         raise ValueError("postgres_url is required")
 
+    print(f"[export] Reading DuckDB table: {duckdb_table}", flush=True)
     con = get_connection(duckdb_path)
     try:
-        df = con.execute(f"SELECT * FROM {duckdb_table}").df()
+        df = con.execute(f'SELECT * FROM "{duckdb_table}"').df()
     finally:
         con.close()
 
-    engine = create_engine(postgres_url)
+    print(f"[export] Rows to export: {len(df)}", flush=True)
+    print(f"[export] Writing to Postgres table: {postgres_table}", flush=True)
+
+    engine = create_engine(postgres_url, pool_pre_ping=True)
 
     with engine.begin() as pg_conn:
         df.to_sql(
@@ -32,9 +36,10 @@ def export_duckdb_table_to_postgres(
             schema=schema,
             if_exists=if_exists,
             index=False,
-            method="multi",
-            chunksize=1000,
+            chunksize=500,
         )
+
+    print("[export] Postgres export finished.", flush=True)
 
 
 def truncate_postgres_table(
@@ -45,8 +50,8 @@ def truncate_postgres_table(
     if not postgres_url:
         raise ValueError("postgres_url is required")
 
-    engine = create_engine(postgres_url)
+    engine = create_engine(postgres_url, pool_pre_ping=True)
     qualified_name = f"{schema}.{postgres_table}" if schema else postgres_table
 
     with engine.begin() as conn:
-        conn.execute(text(f"TRUNCATE TABLE {qualified_name}"))
+        conn.execute(text(f'TRUNCATE TABLE "{qualified_name}"'))

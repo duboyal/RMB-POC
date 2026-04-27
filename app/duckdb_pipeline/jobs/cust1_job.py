@@ -177,8 +177,11 @@ def run_cust1_job(
     postgres_table: str = "cust1",
     if_exists: str = "replace",
 ) -> None:
+    print("[cust1] Detecting header...", flush=True)
     has_header = detect_header(file_path=file_path, delim=delim)
+    print(f"[cust1] Header detected: {has_header}", flush=True)
 
+    print("[cust1] Staging file into DuckDB...", flush=True)
     stage_delimited_file(
         file_path=file_path,
         table_name="cust1_raw",
@@ -187,11 +190,13 @@ def run_cust1_job(
         replace=True,
     )
 
+    print("[cust1] Checking for trailing empty column...", flush=True)
     drop_extra_trailing_column_if_present(
         table_name="cust1_raw",
         expected_column_count=len(CUST1_COLUMNS),
     )
 
+    print("[cust1] Validating columns...", flush=True)
     if has_header:
         validate_expected_columns("cust1_raw")
     else:
@@ -208,6 +213,7 @@ def run_cust1_job(
 
         validate_expected_columns("cust1_raw")
 
+    print("[cust1] Transforming in DuckDB...", flush=True)
     cust1_transform(
         raw_table="cust1_raw",
         trimmed_table="cust1_trimmed",
@@ -216,9 +222,12 @@ def run_cust1_job(
         final_table="cust1_final",
     )
 
+    print("[cust1] Exporting to Postgres...", flush=True)
     export_duckdb_table_to_postgres(
         duckdb_table="cust1_final",
         postgres_table=postgres_table,
         postgres_url=postgres_url or POSTGRES_URL,
         if_exists=if_exists,
     )
+
+    print("[cust1] Finished successfully.", flush=True)
