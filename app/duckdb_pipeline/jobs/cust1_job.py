@@ -5,6 +5,7 @@ from pathlib import Path
 from app.duckdb_pipeline.config import POSTGRES_URL
 from app.duckdb_pipeline.export import export_duckdb_table_to_postgres
 from app.duckdb_pipeline.staging import (
+    drop_extra_trailing_column_if_present,
     get_table_columns,
     rename_columns,
     stage_delimited_file,
@@ -139,9 +140,6 @@ REQUIRED_CUST1_COLUMNS = {
 
 
 def detect_header(file_path: str, delim: str = "|") -> bool:
-    """
-    Inspect the first row and decide whether it appears to be a header row.
-    """
     path = Path(file_path)
     if not path.exists():
         raise FileNotFoundError(f"File not found: {file_path}")
@@ -160,9 +158,6 @@ def detect_header(file_path: str, delim: str = "|") -> bool:
 
 
 def validate_expected_columns(table_name: str) -> None:
-    """
-    Confirm the staged table has the expected CUST1 shape before transform/export.
-    """
     columns = get_table_columns(table_name)
 
     if len(columns) != len(CUST1_COLUMNS):
@@ -182,17 +177,6 @@ def run_cust1_job(
     postgres_table: str = "cust1",
     if_exists: str = "replace",
 ) -> None:
-    """
-    Run full CUST1 pipeline with header detection and validation.
-
-    Flow:
-    1. detect whether file has header
-    2. stage file into DuckDB
-    3. rename columns if needed
-    4. validate staged columns
-    5. transform into final DuckDB table
-    6. export final table to PostgreSQL
-    """
     has_header = detect_header(file_path=file_path, delim=delim)
 
     stage_delimited_file(
@@ -201,6 +185,11 @@ def run_cust1_job(
         delim=delim,
         header=has_header,
         replace=True,
+    )
+
+    drop_extra_trailing_column_if_present(
+        table_name="cust1_raw",
+        expected_column_count=len(CUST1_COLUMNS),
     )
 
     if has_header:

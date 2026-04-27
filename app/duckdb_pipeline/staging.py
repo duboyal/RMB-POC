@@ -8,9 +8,6 @@ from app.duckdb_pipeline.config import DUCKDB_PATH, ensure_data_dir
 
 
 def get_connection(duckdb_path: str = DUCKDB_PATH) -> duckdb.DuckDBPyConnection:
-    """
-    Open or create the DuckDB database file.
-    """
     ensure_data_dir()
     db_path = Path(duckdb_path)
     db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -25,11 +22,6 @@ def stage_delimited_file(
     replace: bool = True,
     duckdb_path: str = DUCKDB_PATH,
 ) -> None:
-    """
-    Load a delimited text file into a DuckDB table.
-
-    Supports pipe-delimited .txt, TSV, CSV, etc.
-    """
     path = Path(file_path)
     if not path.exists():
         raise FileNotFoundError(f"File not found: {file_path}")
@@ -42,17 +34,31 @@ def stage_delimited_file(
     try:
         con.execute(
             f"""
-            {create_clause} {table_name} AS
+            {create_clause} "{table_name}" AS
             SELECT *
             FROM read_csv_auto(
                 '{escaped_path}',
                 delim='{escaped_delim}',
                 header={str(header).lower()},
                 sample_size=-1,
+                strict_mode=false,
+                null_padding=true,
                 ignore_errors=false
             )
             """
         )
+    finally:
+        con.close()
+
+
+def get_table_columns(
+    table_name: str,
+    duckdb_path: str = DUCKDB_PATH,
+) -> list[str]:
+    con = get_connection(duckdb_path)
+    try:
+        rows = con.execute(f'DESCRIBE "{table_name}"').fetchall()
+        return [row[0] for row in rows]
     finally:
         con.close()
 
@@ -62,10 +68,6 @@ def rename_columns(
     new_column_names: list[str],
     duckdb_path: str = DUCKDB_PATH,
 ) -> None:
-    """
-    Rename all columns in a DuckDB table to the supplied list.
-    Useful when a raw file has no header row.
-    """
     existing_names = get_table_columns(table_name, duckdb_path=duckdb_path)
 
     if len(existing_names) != len(new_column_names):
@@ -78,23 +80,58 @@ def rename_columns(
         for old_name, new_name in zip(existing_names, new_column_names):
             if old_name != new_name:
                 con.execute(
-                    f'ALTER TABLE {table_name} RENAME COLUMN "{old_name}" TO "{new_name}"'
+                    f'ALTER TABLE "{table_name}" RENAME COLUMN "{old_name}" TO "{new_name}"'
                 )
     finally:
         con.close()
 
 
-def get_table_columns(
+def drop_extra_trailing_column_if_present(
     table_name: str,
+    expected_column_count: int,
     duckdb_path: str = DUCKDB_PATH,
-) -> list[str]:
+) -> None:
     """
-    Return the column names for a DuckDB table.
+    Drop one extra final column if it exists and is completely empty.
+
+    This handles files where rows end with a trailing delimiter:
+        a|b|c|
+    which creates one extra blank column.
     """
+    columns = get_table_columns(table_name, duckdb_path=duckdb_path)
+
+    if len(columns) == expected_column_count:
+        return
+
+    if len(columns) != expected_column_count + 1:
+        raise ValueError(
+            f'Unexpected column count for "{table_name}": '
+            f"expected {expected_column_count} or {expected_column_count + 1}, got {len(columns)}"
+        )
+
+    extra_col = columns[-1]
+
     con = get_connection(duckdb_path)
     try:
-        rows = con.execute(f"DESCRIBE {table_name}").fetchall()
-        return [row[0] for row in rows]
+        non_empty_count = con.execute(
+            f"""
+            SELECT COUNT(*)
+            FROM "{table_name}"
+            WHERE "{extra_col}" IS NOT NULL
+              AND TRIM(CAST("{extra_col}" AS VARCHAR)) <> ''
+            """
+        ).fetchone()[0]
+
+        if non_empty_count > 0:
+            raise ValueError(
+                f'Extra trailing column "{extra_col}" is not empty; refusing to drop it.'
+            )
+
+        con.execute(f'ALTER TABLE "{table_name}" DROP COLUMN "{extra_col}"')
+        print(
+            f'Dropped empty trailing column "{extra_col}" from "{table_name}"',
+            flush=True,
+        )
     finally:
         con.close()
 
@@ -103,11 +140,8 @@ def row_count(
     table_name: str,
     duckdb_path: str = DUCKDB_PATH,
 ) -> int:
-    """
-    Return row count for a DuckDB table.
-    """
     con = get_connection(duckdb_path)
     try:
-        return con.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()[0]
+        return con.execute(f'SELECT COUNT(*) FROM "{table_name}"').fetchone()[0]
     finally:
         con.close()
