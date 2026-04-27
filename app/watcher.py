@@ -22,7 +22,7 @@ READY_TO_DATA_MAP = {
     "cust1.ready": "cust1.txt",
     # later:
     # "heder1.ready": "heder1.txt",
-    # "detal1.ready": "detal1.txt",
+    "detal1.ready": "detal1.txt",
 }
 
 
