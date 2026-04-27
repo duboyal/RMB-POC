@@ -20,6 +20,7 @@ def stage_delimited_file(
     delim: str = "|",
     header: bool = True,
     replace: bool = True,
+    skip_rows: int = 0,  # ✅ NEW
     duckdb_path: str = DUCKDB_PATH,
 ) -> None:
     path = Path(file_path)
@@ -29,6 +30,11 @@ def stage_delimited_file(
     create_clause = "CREATE OR REPLACE TABLE" if replace else "CREATE TABLE"
     escaped_path = path.as_posix().replace("'", "''")
     escaped_delim = delim.replace("'", "''")
+
+    print(
+        f'[staging] Loading "{file_path}" → "{table_name}" (header={header}, skip={skip_rows})',
+        flush=True,
+    )
 
     con = get_connection(duckdb_path)
     try:
@@ -40,6 +46,7 @@ def stage_delimited_file(
                 '{escaped_path}',
                 delim='{escaped_delim}',
                 header={str(header).lower()},
+                skip={skip_rows},               -- ✅ NEW
                 sample_size=-1,
                 strict_mode=false,
                 null_padding=true,
@@ -91,13 +98,6 @@ def drop_extra_trailing_column_if_present(
     expected_column_count: int,
     duckdb_path: str = DUCKDB_PATH,
 ) -> None:
-    """
-    Drop one extra final column if it exists and is completely empty.
-
-    This handles files where rows end with a trailing delimiter:
-        a|b|c|
-    which creates one extra blank column.
-    """
     columns = get_table_columns(table_name, duckdb_path=duckdb_path)
 
     if len(columns) == expected_column_count:
@@ -128,8 +128,9 @@ def drop_extra_trailing_column_if_present(
             )
 
         con.execute(f'ALTER TABLE "{table_name}" DROP COLUMN "{extra_col}"')
+
         print(
-            f'Dropped empty trailing column "{extra_col}" from "{table_name}"',
+            f'[staging] Dropped empty trailing column "{extra_col}" from "{table_name}"',
             flush=True,
         )
     finally:
