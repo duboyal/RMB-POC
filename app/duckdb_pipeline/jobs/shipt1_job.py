@@ -79,7 +79,7 @@ def validate_expected_columns(table_name: str) -> None:
 def run_shipt1_job(
     file_path: str,
     postgres_url: str | None = None,
-    delim: str = "\t",
+    delim: str = "|",
     postgres_table: str = "shipt1",
     if_exists: str = "replace",
 ) -> None:

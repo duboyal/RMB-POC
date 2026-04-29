@@ -281,7 +281,7 @@ def validate_expected_columns(table_name: str) -> None:
 def run_whsfl1_job(
     file_path: str,
     postgres_url: str | None = None,
-    delim: str = "\t",
+    delim: str = "|",
     postgres_table: str = "whsfl1",
     if_exists: str = "replace",
 ) -> None:

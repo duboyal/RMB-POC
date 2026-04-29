@@ -111,7 +111,7 @@ def validate_expected_columns(table_name: str) -> None:
 def run_oitem1_job(
     file_path: str,
     postgres_url: str | None = None,
-    delim: str = "\t",
+    delim: str = "|",
     postgres_table: str = "oitem1",
     if_exists: str = "replace",
 ) -> None:
