@@ -173,7 +173,7 @@ def validate_expected_columns(table_name: str) -> None:
 def run_heder1_job(
     file_path: str,
     postgres_url: str | None = None,
-    delim: str = "\t",
+    delim: str = "|",
     postgres_table: str = "heder1",
     if_exists: str = "replace",
 ) -> None:
