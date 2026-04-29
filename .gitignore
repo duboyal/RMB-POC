@@ -1,29 +1,46 @@
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
 
+# Python envs
+.venv/
+venv/
+
+# Environment variables
 .env
+.env.*
 
+# DuckDB / local databases
 *.duckdb
 *.duckdb.wal
+*.sqlite3
 
+# IDEs
 .idea/
-
-# maybe remove 
-data/*.tsv 
-data/*.csv
-!data/sample/
+.vscode/
 
 # macOS
 .DS_Store
 
-# pytest
+# pytest / coverage
 .pytest_cache/
-
-# coverage
 .coverage
+htmlcov/
 
 # logs
 *.log
 
+# raw/local data files
+data/*.tsv
+data/*.csv
+data/*.txt
+
+# keep sample data and folder structure
+!data/sample/
+!data/sample/**
+!data/.gitkeep
+
+# generated/processed data
 data/processed/
 data/error/
