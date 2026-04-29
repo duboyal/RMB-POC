@@ -24,3 +24,6 @@ data/*.csv
 
 # logs
 *.log
+
+data/processed/
+data/error/

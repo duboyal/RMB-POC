@@ -1,8 +1,10 @@
 import os
 from collections.abc import Generator
+from dotenv import load_dotenv
+load_dotenv()
 
 import pytest
-from sqlalchemy import create_engine, text, inspect
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine import Engine
 
 
@@ -27,19 +29,27 @@ def engine() -> Generator[Engine, None, None]:
 
 @pytest.fixture(autouse=True)
 def clean_tables(engine: Engine) -> Generator[None, None, None]:
-    with engine.begin() as conn:
-        for table in reversed(TABLES_TO_CLEAN):
-            conn.execute(text(f"TRUNCATE TABLE {table} RESTART IDENTITY CASCADE"))
+    def _clean() -> None:
+        existing_tables = set(inspect(engine).get_table_names())
+
+        with engine.begin() as conn:
+            for table in reversed(TABLES_TO_CLEAN):
+                if table in existing_tables:
+                    conn.execute(
+                        text(f'TRUNCATE TABLE "{table}" RESTART IDENTITY CASCADE')
+                    )
+
+    _clean()
     yield
-    with engine.begin() as conn:
-        for table in reversed(TABLES_TO_CLEAN):
-            conn.execute(text(f"TRUNCATE TABLE {table} RESTART IDENTITY CASCADE"))
+    _clean()
 
 
 def _insert_row(engine: Engine, table: str, row: dict) -> None:
-    cols = ", ".join(row.keys())
-    vals = ", ".join(f":{k}" for k in row.keys())
-    sql = text(f"INSERT INTO {table} ({cols}) VALUES ({vals})")
+    cols = ", ".join(f'"{col}"' for col in row.keys())
+    vals = ", ".join(f":{key}" for key in row.keys())
+
+    sql = text(f'INSERT INTO "{table}" ({cols}) VALUES ({vals})')
+
     with engine.begin() as conn:
         conn.execute(sql, row)
 
@@ -131,28 +141,9 @@ def seed_shipt1(insert_row):
 def assert_row_count(fetch_val):
     def _assert(table: str, where_sql: str, params: dict, expected: int):
         count = fetch_val(
-            f"SELECT COUNT(*) FROM {table} WHERE {where_sql}",
+            f'SELECT COUNT(*) FROM "{table}" WHERE {where_sql}',
             params,
         )
         assert count == expected
 
     return _assert
-
-
-@pytest.fixture(autouse=True)
-def clean_tables(engine: Engine) -> Generator[None, None, None]:
-    existing_tables = set(inspect(engine).get_table_names())
-
-    with engine.begin() as conn:
-        for table in reversed(TABLES_TO_CLEAN):
-            if table in existing_tables:
-                conn.execute(text(f"TRUNCATE TABLE {table} RESTART IDENTITY CASCADE"))
-
-    yield
-
-    existing_tables = set(inspect(engine).get_table_names())
-
-    with engine.begin() as conn:
-        for table in reversed(TABLES_TO_CLEAN):
-            if table in existing_tables:
-                conn.execute(text(f"TRUNCATE TABLE {table} RESTART IDENTITY CASCADE"))
