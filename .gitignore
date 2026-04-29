@@ -44,3 +44,4 @@ data/*.txt
 # generated/processed data
 data/processed/
 data/error/
+data/FileTestRepo
