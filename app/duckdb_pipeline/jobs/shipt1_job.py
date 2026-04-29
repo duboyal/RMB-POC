@@ -42,7 +42,7 @@ SHIPT1_COLUMNS = [
 REQUIRED_SHIPT1_COLUMNS = {'CUSTOMER #', 'SHIP-TO #'}
 
 
-def validate_header_row(file_path: str, delim: str = "\t") -> None:
+def validate_header_row(file_path: str, delim: str = "|") -> None:
     path = Path(file_path)
 
     if not path.exists():
