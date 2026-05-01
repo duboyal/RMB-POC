@@ -17,6 +17,7 @@ from app.duckdb_pipeline.jobs.pcode1_job import run_pcode1_job
 from app.duckdb_pipeline.jobs.scode1_job import run_scode1_job
 from app.duckdb_pipeline.jobs.shipt1_job import run_shipt1_job
 from app.duckdb_pipeline.jobs.whsfl1_job import run_whsfl1_job
+from app.duckdb_pipeline.jobs.zipper_job import run_zipper_job  # zipper
 
 
 INCOMING = Path("/data/incoming")
@@ -36,6 +37,7 @@ READY_TO_DATA_MAP = {
     "scode1.ready": "scode1.txt",
     "shipt1.ready": "shipt1.txt",
     "whsfl1.ready": "whsfl1.txt",
+    "zipper.ready": "zipper.txt",  # NEW
 }
 
 
@@ -49,6 +51,7 @@ JOB_MAP = {
     "scode1.ready": run_scode1_job,
     "shipt1.ready": run_shipt1_job,
     "whsfl1.ready": run_whsfl1_job,
+    "zipper.ready": run_zipper_job,  # NEW
 }
 
 
