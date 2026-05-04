@@ -8,13 +8,14 @@ def run_zipper_job(file_path: str) -> None:
     table_name = "zipper"
 
     # 1. Stage into DuckDB
-    row_count = stage_delimited_file(
+    stage_delimited_file(
         file_path=file_path,
         table_name=table_name,
-        delimiter="|",
+        delim="|",          
+        replace=True,
     )
 
-    print(f"[zipper] Staged {row_count} rows into DuckDB", flush=True)
+    print(f"[zipper] Staged data into DuckDB", flush=True)
 
     # 2. Export to Postgres
     export_duckdb_table_to_postgres(table_name)
